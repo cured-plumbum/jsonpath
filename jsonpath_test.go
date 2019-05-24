@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	testifyAssert "github.com/stretchr/testify/assert"
 )
 
 var goessner = []byte(`{
@@ -264,4 +266,41 @@ func assertError(t *testing.T, json interface{}, tests map[string]string) {
 			t.Error("path", path, "shoud fail with ", expectedError, "but failed with:", err)
 		}
 	}
+}
+
+func Test_replaceKeysForString(t *testing.T) {
+
+	srcMap := map[interface{}]interface{}{
+		1: "abc",
+		"oak": map[string]interface{}{
+			"inner": map[interface{}]interface{}{
+				56: 67,
+			},
+		},
+		23: map[interface{}]interface{}{
+			45.0: "abc",
+		},
+	}
+
+	newMap := replaceKeysForString(srcMap)
+
+	testifyAssert.Len(t, newMap, len(srcMap))
+	testifyAssert.IsType(t, map[string]interface{}{}, newMap)
+
+	sm := newMap.(map[string]interface{})
+	testifyAssert.Equal(t, "abc", sm["1"])
+	testifyAssert.IsType(t, map[string]interface{}{}, sm["oak"])
+	testifyAssert.IsType(t, map[string]interface{}{}, sm["23"])
+
+	testifyAssert.Len(t, sm["oak"], 1)
+	testifyAssert.Len(t, sm["23"], 1)
+
+	oak := sm["oak"].(map[string]interface{})
+	testifyAssert.IsType(t, map[string]interface{}{}, oak["inner"])
+	testifyAssert.Len(t, oak["inner"], 1)
+
+	testifyAssert.Equal(t, 67, oak["inner"].(map[string]interface{})["56"])
+
+	testifyAssert.IsType(t, map[string]interface{}{}, sm["23"])
+	testifyAssert.Equal(t, "abc", sm["23"].(map[string]interface{})["45"])
 }

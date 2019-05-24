@@ -35,7 +35,7 @@ import (
 	"text/scanner"
 )
 
-// Read a path from a decoded JSON array or object ([]interface{} or map[string]interface{})
+// Read a path from a decoded JSON array or object ([]interface{}, map[string]interface{} or map[interface{}]interface{})
 // and returns the corresponding value or an error.
 //
 // The returned value type depends on the requested path and the JSON value.
@@ -103,6 +103,7 @@ type parser struct {
 func (p *parser) prepareFilterFunc() FilterFunc {
 	actions := p.actions
 	return func(value interface{}) (interface{}, error) {
+		value = replaceKeysForString(value)
 		result, err := actions.next(value, value)
 		if err == nil {
 			if sr, ok := result.(searchResults); ok {
@@ -325,7 +326,7 @@ parse:
 			if mode == "" {
 				mode = "union"
 			} else if mode != "union" {
-				return fmt.Errorf("unexpeted ',' in %s at %d", mode, p.column())
+				return fmt.Errorf("unexpected ',' in %s at %d", mode, p.column())
 			}
 		case ':':
 			if mode == "" {
@@ -566,4 +567,22 @@ func valuesSortedByKey(m map[string]interface{}) []interface{} {
 		values = append(values, m[k])
 	}
 	return values
+}
+
+func replaceKeysForString(value interface{}) interface{} {
+	switch c := value.(type) {
+	case map[string]interface{}:
+		for k, v := range c {
+			c[k] = replaceKeysForString(v)
+		}
+		return c
+	case map[interface{}]interface{}:
+		nm := make(map[string]interface{})
+		for k, v := range c {
+			nm[fmt.Sprint(k)] = replaceKeysForString(v)
+		}
+		return nm
+	default:
+		return value
+	}
 }
